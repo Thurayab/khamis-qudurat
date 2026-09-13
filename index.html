@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>خميس القدرات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react"
+  }
+}
+</script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module" data-presets="react">
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  Users,
+  ClipboardList,
+  Trophy,
+  Settings,
+  Plus,
+  Pencil,
+  Trash2,
+  Lock,
+  Unlock,
+  X,
+  Check,
+  ChevronLeft,
+  LogOut,
+  GraduationCap,
+  Save,
+  AlertTriangle,
+  FlaskConical,
+  CalendarClock,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+
+/* -------------------------------------------------------------------------
+   خميس القدرات — تتبّع أسبوعي لدرجات اختبار القدرات + اختبارات تجريبية كمية
+   تخزين دائم مشترك عبر window.storage (shared)
+------------------------------------------------------------------------- */
+
+const ADMIN_PIN = "1990";
+
+const KEYS = {
+  students: "kq-students-v1",
+  exams: "kq-exams-v1",
+  scores: "kq-scores-v1",
+  mockStart: "kq-mock-start-v1",
+  mockAttempts: "kq-mock-attempts-v1",
+};
+
+const CLASSES = ["أ", "ب"];
+const MOCK_TEST_COUNT = 14;
+const DEFAULT_MOCK_START = "2026-09-10"; // الخميس ١٠ سبتمبر ٢٠٢٦
+
+function genPin(idx) {
+  // ترتيب شبه عشوائي وثابت لأرقام سرية من 4 خانات، بدون تكرار ضمن نطاق معقول
+  return String(1000 + ((idx * 617 + 349) % 9000));
+}
+
+const DEFAULT_STUDENTS = (() => {
+  const classA = [
+    "أرين عيد مقيت الدوسري",
+    "أسيل بنت شبيب بن ابراهيم البكر",
+    "أميرة بنت حصن بن إبراهيم المجادعة",
+    "الماس بنت زويد بن مدهش النتيفات",
+    "الين بنت عبدالله بن منيف المصارير الدوسري",
+    "ايلاف بنت درعان بن سعد النتيفات",
+    "جنى بنت علي بن ناصر الدوسري",
+    "ربى بنت هضيبان بن عامر الدوسري",
+    "رندا بنت راشد بن محمد النتيفات",
+    "ريفانا بنت راشد بن عامر الدوسري",
+    "ريما بنت ماضي بن حسن بن عبدالله العبدالله الدوسري",
+    "سارة بنت فهد بن عبدالرحمن الدوسري",
+    "سلاف بنت فهد بن مبارك المصارير",
+    "غدي بنت مبارك بن خلف آل بكر الدوسري",
+    "غدي بنت مقيت بن عبدالرحمن الدوسري",
+    "كيان بنت هضيبان بن مقعد الدوسري",
+    "لمار بنت بتال بن محمد النتيفات",
+    "لين بنت زابن بن عبدالله المصارير",
+    "لينا بنت مفرج بن فهد النتيفات",
+    "مشاعل بنت سيف بن محمد النتيفات",
+    "منار بنت محمد بن شافي النتيفات",
+    "منيرة بنت ناصر بن محمد النتيفات",
+    "ميس بنت فهد بن سعد النتيفات",
+    "نواره بنت عبدالله بن عبدالرحمن بن راشد الدوسري",
+    "نوره بنت إبراهيم بن فالح ال وحيد",
+    "نوره بنت محمد بن جهز الدوسري",
+    "وضحى بنت سالم بن محمد النتيفات",
+  ];
+  const classB = [
+    "أملاك ناصر راشد الدوسري",
+    "أنوار بنت راشيد بن مطرف الدوسري",
+    "أنوار بنت فهد بن راشد الدوسري",
+    "جنان بنت بداح بن مقيت الدوسري",
+    "جنان بنت دعس بن ناصر النتيفات",
+    "جنى بنت عبدالله بن سالم النتيفات",
+    "جود بنت داهش بن فهيد النتيفات",
+    "جودي بنت محمد بن راشد الدوسري",
+    "دانه بنت بتال عبدالله النتيفات",
+    "دانه بنت عامر بن ظافي الدوسري",
+    "رسيل بنت عويضه بن ضافي النتيفات",
+    "رندا بنت شبيب بن ابراهيم البكر",
+    "رنيم بنت عبدالرحمن بن ظافي النتيفات",
+    "روجينا بنت عبدالرحمن بن ماجد النتيفات",
+    "رولا بنت محمد بن فهد النتيفات",
+    "ريف بنت ناصر بن فهد النتيفات",
+    "ريم بنت شبيب بن بكر آل بكر",
+    "ريما بنت راشد بن مقيت الدوسري",
+    "ريماس بنت محسن بن عبدالرحمن الدوسري",
+    "سارة بنت راشد بن عبدالله الدوسري",
+    "شهد بنت سعد بن فهد النتيفات",
+    "ضحى بنت راشد بن عبدالله الدوسري",
+    "فاطمه بنت عمار بن راشد الدوسري",
+    "لمار بنت حمد بن درعان النتيفات",
+    "ليان بنت فهد بن عبدالله الكثيري",
+    "مريم بنت عايض بن ناصر النتيفات",
+    "ميار بنت متعب بن عايش النتيفات",
+    "نايا بنت محمد بن سعد النتيفات",
+    "نوره بنت عبدالله بن عايض النتيفات",
+    "هاجر بنت محسن بن محمد النتيفات",
+  ];
+  const raw = [
+    ...classA.map((name) => ({ name, className: "أ" })),
+    ...classB.map((name) => ({ name, className: "ب" })),
+  ];
+  return raw.map((s, idx) => ({
+    id: `st-${idx + 1}`,
+    name: s.name,
+    className: s.className,
+    pin: genPin(idx),
+  }));
+})();
+
+function uid(prefix) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+}
+
+function useGoogleFonts() {
+  useEffect(() => {
+    if (document.getElementById("kq-fonts")) return;
+    const link = document.createElement("link");
+    link.id = "kq-fonts";
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;600;700&family=Tajawal:wght@400;500;700;900&display=swap";
+    document.head.appendChild(link);
+  }, []);
+}
+
+/* ---------------------------- تخزين (Supabase) ---------------------------- */
+
+const SUPABASE_URL = "https://iowdeogilmbllmrynroc.supabase.co";
+const SUPABASE_KEY = "sb_publishable_zTDWd1DjAZZDmHfqMNgboA_dVg0E66m";
+const SUPABASE_TABLE = "kq_storage";
+
+const sbHeaders = {
+  apikey: SUPABASE_KEY,
+  Authorization: `Bearer ${SUPABASE_KEY}`,
+  "Content-Type": "application/json",
+};
+
+async function loadKey(key, fallback) {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?key=eq.${encodeURIComponent(
+      key
+    )}&select=value`;
+    const res = await fetch(url, { headers: sbHeaders });
+    if (!res.ok) return fallback;
+    const rows = await res.json();
+    if (rows && rows.length > 0 && rows[0].value !== undefined && rows[0].value !== null) {
+      return rows[0].value;
+    }
+    return fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+async function saveKey(key, value) {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?on_conflict=key`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { ...sbHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ------------------------- توليد أسئلة القسم الكمي ------------------------- */
+
+function buildRotatedChoices(correct, distractors, seed) {
+  const uniq = [];
+  [correct, ...distractors].forEach((v) => {
+    const s = String(v);
+    if (!uniq.includes(s)) uniq.push(s);
+  });
+  while (uniq.length < 4) uniq.push(String(Number(correct) + uniq.length * 3 + 7));
+  const rot = seed % uniq.length;
+  const rotated = [...uniq.slice(rot), ...uniq.slice(0, rot)];
+  const correctIndex = rotated.indexOf(String(correct));
+  return { choices: rotated, correctIndex };
+}
+
+function q_arithmetic(i) {
+  const a = 12 + i * 3,
+    b = 5 + i,
+    c = 3;
+  const correct = (a + b) * c - b;
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [correct + b, correct - c, correct + c * 2],
+    i + 1
+  );
+  return {
+    topic: "العمليات الحسابية",
+    question: `ما ناتج العملية التالية؟\n(${a} + ${b}) × ${c} − ${b}`,
+    choices,
+    correctIndex,
+    explanation: `نحسب داخل القوس أولًا: ${a} + ${b} = ${a + b}. ثم نضرب الناتج في ${c} فنحصل على ${
+      (a + b) * c
+    }. وأخيرًا نطرح ${b} فيكون الناتج النهائي ${correct}.`,
+  };
+}
+
+function q_percentage(i) {
+  const a = 200 + i * 20;
+  const p = [10, 15, 20, 25, 30][i % 5];
+  const discount = Math.round((a * p) / 100);
+  const correct = a - discount;
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [discount, correct + 10, a - Math.round((a * (p + 5)) / 100)],
+    i + 2
+  );
+  return {
+    topic: "النسبة المئوية",
+    question: `تبلغ قيمة سلعة ${a} ريالًا، وحصلت إحدى الطالبات عليها بخصم ${p}%. كم أصبح سعر السلعة بعد الخصم؟`,
+    choices,
+    correctIndex,
+    explanation: `مقدار الخصم = ${a} × ${p}% = ${discount} ريالًا. سعر السلعة بعد الخصم = ${a} − ${discount} = ${correct} ريالًا.`,
+  };
+}
+
+function q_inverse_proportion(i) {
+  const k1 = 4 + (i % 3);
+  const d1 = (6 + i) * 2;
+  const k2 = k1 * 2;
+  const correct = d1 / 2;
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [d1, d1 * 2, correct + 2],
+    i + 3
+  );
+  return {
+    topic: "التناسب العكسي",
+    question: `تُنجز ${k1} عاملات عملًا معينًا خلال ${d1} يومًا. كم يومًا تحتاجه ${k2} عاملة لإنجاز العمل نفسه (بافتراض تساوي إنتاجية كل عاملة)؟`,
+    choices,
+    correctIndex,
+    explanation: `العلاقة بين عدد العاملات وعدد الأيام عكسية: كلما زاد عدد العاملات قلّ عدد الأيام. بما أن العدد تضاعف من ${k1} إلى ${k2}، ينخفض عدد الأيام إلى النصف: ${d1} ÷ 2 = ${correct} يومًا.`,
+  };
+}
+
+function q_algebra(i) {
+  const m = 2 + (i % 4) + 1;
+  const xVal = 7 + i;
+  const k = 5 + i;
+  const rhs = m * xVal + k;
+  const correct = xVal;
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [correct + 1, correct - 1, correct + 3],
+    i + 4
+  );
+  return {
+    topic: "المعادلات الجبرية",
+    question: `إذا كان ${m}س + ${k} = ${rhs}، فما قيمة س؟`,
+    choices,
+    correctIndex,
+    explanation: `نطرح ${k} من الطرفين: ${m}س = ${rhs - k}. ثم نقسم على ${m}: س = ${
+      rhs - k
+    } ÷ ${m} = ${correct}.`,
+  };
+}
+
+function q_geometry(i) {
+  const L = 8 + i;
+  const W = 5 + (i % 3);
+  const isArea = i % 2 === 0;
+  if (isArea) {
+    const correct = L * W;
+    const { choices, correctIndex } = buildRotatedChoices(
+      correct,
+      [2 * (L + W), correct + W, correct - L],
+      i + 5
+    );
+    return {
+      topic: "الهندسة",
+      question: `مستطيل طوله ${L} سم وعرضه ${W} سم، فما مساحته؟`,
+      choices,
+      correctIndex,
+      explanation: `المساحة = الطول × العرض = ${L} × ${W} = ${correct} سم².`,
+    };
+  }
+  const correct = 2 * (L + W);
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [L * W, correct + 2, correct - 4],
+    i + 5
+  );
+  return {
+    topic: "الهندسة",
+    question: `مستطيل طوله ${L} سم وعرضه ${W} سم، فما محيطه؟`,
+    choices,
+    correctIndex,
+    explanation: `المحيط = 2×(الطول + العرض) = 2×(${L} + ${W}) = ${correct} سم.`,
+  };
+}
+
+function q_sequence(i) {
+  const start = 3 + i;
+  const step = 4 + (i % 3);
+  const seq = [start, start + step, start + 2 * step, start + 3 * step];
+  const correct = start + 4 * step;
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [correct + step, correct - step, correct + 2 * step],
+    i + 6
+  );
+  return {
+    topic: "المتتاليات العددية",
+    question: `ما الحد التالي في المتتالية: ${seq.join("، ")}، ...؟`,
+    choices,
+    correctIndex,
+    explanation: `الفرق الثابت بين الحدود المتتالية هو ${step}. الحد التالي = ${
+      seq[3]
+    } + ${step} = ${correct}.`,
+  };
+}
+
+function q_average(i) {
+  const a = 8 + i;
+  const nums = [a, a + 2, a + 4, a + 6];
+  const sum = nums.reduce((s, v) => s + v, 0);
+  const correct = sum / 4;
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [correct + 1, correct - 1, sum],
+    i + 7
+  );
+  return {
+    topic: "الإحصاء",
+    question: `ما متوسط الدرجات التالية: ${nums.join("، ")}؟`,
+    choices,
+    correctIndex,
+    explanation: `المتوسط الحسابي = مجموع القيم ÷ عددها = (${nums.join(
+      " + "
+    )}) ÷ 4 = ${sum} ÷ 4 = ${correct}.`,
+  };
+}
+
+function q_speed(i) {
+  const speed = 60 + (i % 4) * 10;
+  const time = 2 + (i % 3);
+  const correct = speed * time;
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [correct + speed, correct - time, speed + time],
+    i + 8
+  );
+  return {
+    topic: "مسائل السرعة",
+    question: `تسير سيارة بسرعة ثابتة قدرها ${speed} كم/سا لمدة ${time} ساعات. فما المسافة التي تقطعها؟`,
+    choices,
+    correctIndex,
+    explanation: `المسافة = السرعة × الزمن = ${speed} × ${time} = ${correct} كم.`,
+  };
+}
+
+function q_comparison(i) {
+  const square = (i + 3) * (i + 3);
+  const product = (i + 2) * (i + 4); // = square - 1 دائمًا
+  const aIsSquare = i % 2 === 0;
+  const aExpr = aIsSquare ? `${i + 3} × ${i + 3}` : `${i + 2} × ${i + 4}`;
+  const bExpr = aIsSquare ? `${i + 2} × ${i + 4}` : `${i + 3} × ${i + 3}`;
+  const aVal = aIsSquare ? square : product;
+  const bVal = aIsSquare ? product : square;
+  const correctIndex = aVal > bVal ? 0 : aVal < bVal ? 1 : 2;
+  const choices = [
+    "الكمية أ أكبر",
+    "الكمية ب أكبر",
+    "الكميتان متساويتان",
+    "يتعذّر تحديد ذلك بالمعطيات المتاحة",
+  ];
+  return {
+    topic: "مقارنة الكميات",
+    question: `قارني بين الكميتين التاليتين ثم اختاري العبارة الصحيحة:\nالكمية أ: ${aExpr}\nالكمية ب: ${bExpr}`,
+    choices,
+    correctIndex,
+    explanation: `الكمية أ = ${aExpr} = ${aVal}، والكمية ب = ${bExpr} = ${bVal}. الفرق بينهما ثابت ومقداره 1 وفق متطابقة الفرق بين مربعين، لذلك ${
+      aVal > bVal ? "الكمية أ أكبر" : "الكمية ب أكبر"
+    }.`,
+  };
+}
+
+function q_fraction(i) {
+  const pairs = [
+    { N: 40, num: 3, den: 4 },
+    { N: 45, num: 2, den: 5 },
+    { N: 48, num: 5, den: 8 },
+    { N: 60, num: 7, den: 12 },
+    { N: 36, num: 5, den: 6 },
+  ];
+  const p = pairs[i % 5];
+  const correct = (p.N * p.num) / p.den;
+  const { choices, correctIndex } = buildRotatedChoices(
+    correct,
+    [p.N - correct, correct + p.num, p.N],
+    i + 9
+  );
+  return {
+    topic: "الكسور والنسب",
+    question: `في فصل يضم ${p.N} طالبة، نجح ${p.num}/${p.den} منهن في الاختبار. فكم عدد الطالبات اللاتي نجحن؟`,
+    choices,
+    correctIndex,
+    explanation: `عدد الناجحات = ${p.N} × (${p.num}/${p.den}) = ${correct} طالبة.`,
+  };
+}
+
+function buildMockQuestions(i) {
+  return [
+    q_arithmetic(i),
+    q_percentage(i),
+    q_inverse_proportion(i),
+    q_algebra(i),
+    q_geometry(i),
+    q_sequence(i),
+    q_average(i),
+    q_speed(i),
+    q_comparison(i),
+    q_fraction(i),
+  ].map((q, k) => ({ ...q, id: `m${i + 1}-q${k + 1}` }));
+}
+
+const MOCK_TESTS = Array.from({ length: MOCK_TEST_COUNT }, (_, i) => ({
+  id: `mock-${i + 1}`,
+  title: `الاختبار التجريبي رقم ${i + 1}`,
+  questions: buildMockQuestions(i),
+}));
+
+/* ------------------------- جدولة الاختبارات (خميس → اثنين) ------------------------- */
+
+function getFirstThursday(dateStr) {
+  const d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+  const day = d.getDay(); // الخميس = 4
+  const diff = (4 - day + 7) % 7;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getTestWindow(firstThursday, i) {
+  const start = new Date(firstThursday);
+  start.setDate(start.getDate() + i * 7);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 5); // الخميس + 5 أيام = الثلاثاء
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function fmtDate(d) {
+  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+}
+
+function getStatus(now, start, end, attempted) {
+  if (attempted) return "submitted";
+  if (now < start) return "upcoming";
+  if (now > end) return "missed";
+  return "open";
+}
+
+/* ---------------------------- مكوّنات صغيرة ---------------------------- */
+
+function MedalBadge({ rank }) {
+  const map = {
+    1: { emoji: "🥇", bg: "#FBF1DB", ring: "#C99A2E" },
+    2: { emoji: "🥈", bg: "#F1F2F3", ring: "#9AA5AC" },
+    3: { emoji: "🥉", bg: "#F7EAE1", ring: "#B5763A" },
+  };
+  if (!map[rank]) {
+    return (
+      <span
+        className="inline-flex items-center justify-center rounded-full text-sm font-bold"
+        style={{
+          width: 30,
+          height: 30,
+          color: "#4B6360",
+          background: "#EDEFE9",
+          fontFamily: "Tajawal, sans-serif",
+        }}
+      >
+        {rank}
+      </span>
+    );
+  }
+  const m = map[rank];
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full text-base"
+      style={{ width: 32, height: 32, background: m.bg, border: `1.5px solid ${m.ring}` }}
+      title={`المركز ${rank}`}
+    >
+      {m.emoji}
+    </span>
+  );
+}
+
+function ClassPill({ c }) {
+  const styles =
+    c === "أ"
+      ? { bg: "#E6EFEC", text: "#2F6F62", border: "#BFD8CF" }
+      : { bg: "#EEEAF5", text: "#5B4B8A", border: "#D8CFEA" };
+  return (
+    <span
+      className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold shrink-0"
+      style={{
+        background: styles.bg,
+        color: styles.text,
+        border: `1px solid ${styles.border}`,
+        fontFamily: "Tajawal, sans-serif",
+      }}
+    >
+      فصل {c}
+    </span>
+  );
+}
+
+function StatusPill({ status }) {
+  const map = {
+    upcoming: { bg: "#F1F4F0", text: "#7C8A85", label: "لم يبدأ بعد" },
+    open: { bg: "#E6EFEC", text: "#2F6F62", label: "متاح الآن" },
+    missed: { bg: "#FBEAE5", text: "#B3452F", label: "انتهى الوقت" },
+    submitted: { bg: "#EEEAF5", text: "#5B4B8A", label: "تم الحل" },
+  };
+  const s = map[status];
+  return (
+    <span
+      className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0"
+      style={{ background: s.bg, color: s.text }}
+    >
+      {s.label}
+    </span>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, accent }) {
+  return (
+    <div
+      className="flex-1 min-w-[130px] rounded-xl px-4 py-3.5 flex items-center gap-3"
+      style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}
+    >
+      <div
+        className="flex items-center justify-center rounded-lg shrink-0"
+        style={{ width: 38, height: 38, background: accent + "1A" }}
+      >
+        <Icon size={19} style={{ color: accent }} strokeWidth={2.2} />
+      </div>
+      <div className="min-w-0">
+        <div
+          className="text-[22px] leading-none font-bold tabular-nums"
+          style={{ color: "#16302E", fontFamily: "Tajawal, sans-serif" }}
+        >
+          {value}
+        </div>
+        <div className="text-[12.5px] mt-1 truncate" style={{ color: "#5C6E68", fontFamily: "Tajawal, sans-serif" }}>
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ title, hint }) {
+  return (
+    <div className="rounded-xl py-10 px-6 text-center" style={{ background: "#FFFFFF", border: "1px dashed #C9D2CB" }}>
+      <div className="text-[15px] font-bold mb-1" style={{ color: "#3A4A46", fontFamily: "Tajawal, sans-serif" }}>
+        {title}
+      </div>
+      {hint && (
+        <div className="text-[13px]" style={{ color: "#7C8A85", fontFamily: "Tajawal, sans-serif" }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- جدول الترتيب ---------------------------- */
+
+function RankingTable({ rows, title, subtitle }) {
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+      <div
+        className="px-4 py-3.5"
+        style={{
+          background: "repeating-linear-gradient(#F7F9F6 0 27px, #EDF1EC 27px 28px)",
+          borderBottom: "1px solid #DCE3DE",
+        }}
+      >
+        <div className="font-bold text-[16px]" style={{ color: "#16302E", fontFamily: "Markazi Text, serif" }}>
+          {title}
+        </div>
+        {subtitle && (
+          <div className="text-[12.5px] mt-0.5" style={{ color: "#6C7C77", fontFamily: "Tajawal, sans-serif" }}>
+            {subtitle}
+          </div>
+        )}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="p-5">
+          <EmptyState title="لا يوجد ترتيب بعد" hint="أضف طالبات ودرجات اختبار من لوحة الإدارة" />
+        </div>
+      ) : (
+        <div>
+          <div
+            className="grid px-4 py-2 text-[11.5px] font-bold"
+            style={{
+              gridTemplateColumns: "40px 1fr 64px 64px 60px",
+              color: "#7C8A85",
+              fontFamily: "Tajawal, sans-serif",
+              borderBottom: "1px solid #EDF1EC",
+            }}
+          >
+            <span>#</span>
+            <span>الاسم</span>
+            <span className="text-center">المتوسط</span>
+            <span className="text-center">المجموع</span>
+            <span className="text-center">اختبارات</span>
+          </div>
+          {rows.map((r, i) => (
+            <div
+              key={r.id}
+              className="grid items-center px-4 py-2.5"
+              style={{
+                gridTemplateColumns: "40px 1fr 64px 64px 60px",
+                borderBottom: i === rows.length - 1 ? "none" : "1px solid #F1F4F0",
+                background: r.rank <= 3 ? "#FBFAF5" : "transparent",
+              }}
+            >
+              <MedalBadge rank={r.rank} />
+              <div className="min-w-0 pr-2.5">
+                <div className="font-bold text-[14.5px] truncate" style={{ color: "#1E3A3A", fontFamily: "Tajawal, sans-serif" }}>
+                  {r.name}
+                </div>
+                <div className="mt-0.5">
+                  <ClassPill c={r.className} />
+                </div>
+              </div>
+              <div className="text-center font-bold text-[15px] tabular-nums" style={{ color: "#2F6F62", fontFamily: "Tajawal, sans-serif" }}>
+                {r.avg.toFixed(1)}
+              </div>
+              <div className="text-center text-[13.5px] tabular-nums" style={{ color: "#3A4A46", fontFamily: "Tajawal, sans-serif" }}>
+                {r.total}
+              </div>
+              <div className="text-center text-[13.5px] tabular-nums" style={{ color: "#7C8A85", fontFamily: "Tajawal, sans-serif" }}>
+                {r.count}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- التطبيق الرئيسي ---------------------------- */
+
+function App() {
+  useGoogleFonts();
+
+  const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState([]);
+  const [exams, setExams] = useState([]);
+  const [scores, setScores] = useState({});
+  const [mockStartDate, setMockStartDate] = useState(DEFAULT_MOCK_START);
+  const [mockAttempts, setMockAttempts] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const [tab, setTab] = useState("home");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [adminSubTab, setAdminSubTab] = useState("students");
+
+  useEffect(() => {
+    (async () => {
+      const [s, e, sc, ms, ma] = await Promise.all([
+        loadKey(KEYS.students, DEFAULT_STUDENTS),
+        loadKey(KEYS.exams, []),
+        loadKey(KEYS.scores, {}),
+        loadKey(KEYS.mockStart, DEFAULT_MOCK_START),
+        loadKey(KEYS.mockAttempts, {}),
+      ]);
+      setStudents(s);
+      setExams(e);
+      setScores(sc);
+      setMockStartDate(ms);
+      setMockAttempts(ma);
+      setLoading(false);
+    })();
+  }, []);
+
+  function flashToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2200);
+  }
+
+  const persistStudents = useCallback(async (next) => {
+    setStudents(next);
+    setSaving(true);
+    await saveKey(KEYS.students, next);
+    setSaving(false);
+  }, []);
+  const persistExams = useCallback(async (next) => {
+    setExams(next);
+    setSaving(true);
+    await saveKey(KEYS.exams, next);
+    setSaving(false);
+  }, []);
+  const persistScores = useCallback(async (next) => {
+    setScores(next);
+    setSaving(true);
+    await saveKey(KEYS.scores, next);
+    setSaving(false);
+  }, []);
+  const persistMockStart = useCallback(async (next) => {
+    setMockStartDate(next);
+    setSaving(true);
+    await saveKey(KEYS.mockStart, next);
+    setSaving(false);
+  }, []);
+  const persistMockAttempts = useCallback(async (next) => {
+    setMockAttempts(next);
+    setSaving(true);
+    await saveKey(KEYS.mockAttempts, next);
+    setSaving(false);
+  }, []);
+
+  /* ------------------------- حساب الإحصاءات ------------------------- */
+
+  const statsById = useMemo(() => {
+    const map = {};
+    students.forEach((s) => {
+      let total = 0;
+      let count = 0;
+      exams.forEach((e) => {
+        const v = scores[e.id]?.[s.id];
+        if (v !== undefined && v !== null && v !== "") {
+          total += Number(v);
+          count += 1;
+        }
+      });
+      map[s.id] = { total, count, avg: count ? total / count : 0 };
+    });
+    return map;
+  }, [students, exams, scores]);
+
+  function buildRanking(classFilter) {
+    let list = students.filter((s) => (classFilter ? s.className === classFilter : true));
+    list = list.map((s) => ({ ...s, ...statsById[s.id] })).filter((s) => s.count > 0);
+    list.sort((a, b) => b.avg - a.avg || b.total - a.total);
+    let rank = 0;
+    let lastAvg = null;
+    let lastTotal = null;
+    list = list.map((s, idx) => {
+      if (lastAvg === null || s.avg !== lastAvg || s.total !== lastTotal) {
+        rank = idx + 1;
+        lastAvg = s.avg;
+        lastTotal = s.total;
+      }
+      return { ...s, rank };
+    });
+    return list;
+  }
+
+  const rankA = useMemo(() => buildRanking("أ"), [students, exams, scores]);
+  const rankB = useMemo(() => buildRanking("ب"), [students, exams, scores]);
+  const rankAll = useMemo(() => buildRanking(null), [students, exams, scores]);
+
+  const countA = students.filter((s) => s.className === "أ").length;
+  const countB = students.filter((s) => s.className === "ب").length;
+
+  /* ------------------------- عمليات الطلاب ------------------------- */
+
+  function genUniquePin(existing) {
+    const used = new Set(existing.map((s) => s.pin));
+    let pin;
+    do {
+      pin = String(Math.floor(1000 + Math.random() * 9000));
+    } while (used.has(pin));
+    return pin;
+  }
+
+  function addStudent(name, className) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const pin = genUniquePin(students);
+    const next = [...students, { id: uid("st"), name: trimmed, className, pin }];
+    persistStudents(next);
+    flashToast(`تمت إضافة الطالبة — رمزها السري: ${pin}`);
+  }
+  function updateStudent(id, name, className, pin) {
+    const next = students.map((s) =>
+      s.id === id ? { ...s, name: name.trim(), className, ...(pin ? { pin } : {}) } : s
+    );
+    persistStudents(next);
+    flashToast("تم حفظ التعديل");
+  }
+  function regenerateStudentPin(id) {
+    const pin = genUniquePin(students);
+    const next = students.map((s) => (s.id === id ? { ...s, pin } : s));
+    persistStudents(next);
+    flashToast(`تم توليد رمز جديد: ${pin}`);
+  }
+  function deleteStudent(id) {
+    const next = students.filter((s) => s.id !== id);
+    persistStudents(next);
+    const nextScores = { ...scores };
+    Object.keys(nextScores).forEach((examId) => {
+      if (nextScores[examId] && id in nextScores[examId]) {
+        const copy = { ...nextScores[examId] };
+        delete copy[id];
+        nextScores[examId] = copy;
+      }
+    });
+    persistScores(nextScores);
+    flashToast("تم حذف الطالبة");
+  }
+
+  /* ------------------------- عمليات الاختبارات الأسبوعية ------------------------- */
+
+  function addExam(name, date) {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const newExam = { id: uid("ex"), name: trimmed, date };
+    persistExams([...exams, newExam]);
+    return newExam.id;
+  }
+  function updateExamInfo(id, name, date) {
+    const next = exams.map((e) => (e.id === id ? { ...e, name: name.trim(), date } : e));
+    persistExams(next);
+  }
+  function deleteExam(id) {
+    persistExams(exams.filter((e) => e.id !== id));
+    const nextScores = { ...scores };
+    delete nextScores[id];
+    persistScores(nextScores);
+    flashToast("تم حذف الاختبار");
+  }
+  function saveExamScores(examId, draft) {
+    const cleaned = {};
+    Object.entries(draft).forEach(([studentId, v]) => {
+      if (v !== "" && v !== null && v !== undefined && !Number.isNaN(Number(v))) {
+        cleaned[studentId] = Number(v);
+      }
+    });
+    persistScores({ ...scores, [examId]: cleaned });
+    flashToast("تم حفظ الدرجات وتحديث الترتيب");
+  }
+
+  /* ------------------------- الاختبارات التجريبية ------------------------- */
+
+  function saveMockAttempt(testId, studentId, payload) {
+    const next = { ...mockAttempts, [testId]: { ...(mockAttempts[testId] || {}), [studentId]: payload } };
+    persistMockAttempts(next);
+  }
+  function resetMockAttempt(testId, studentId) {
+    const next = { ...mockAttempts };
+    if (next[testId]) {
+      const copy = { ...next[testId] };
+      delete copy[studentId];
+      next[testId] = copy;
+      persistMockAttempts(next);
+      flashToast("تم السماح بالمحاولة من جديد");
+    }
+  }
+
+  /* ------------------------------ الدخول ------------------------------ */
+
+  function tryAdminLogin() {
+    if (pinInput === ADMIN_PIN) {
+      setIsAdmin(true);
+      setPinError("");
+      setPinInput("");
+    } else {
+      setPinError("الرمز غير صحيح، حاولي مرة أخرى");
+    }
+  }
+
+  /* ------------------------------ الواجهة ------------------------------ */
+
+  const NAV = [
+    { key: "home", label: "الرئيسية", icon: GraduationCap },
+    { key: "classA", label: "فصل أ", icon: Users },
+    { key: "classB", label: "فصل ب", icon: Users },
+    { key: "overall", label: "العام", icon: Trophy },
+    { key: "mock", label: "تجريبي", icon: FlaskConical },
+    { key: "admin", label: "الإدارة", icon: Settings },
+  ];
+
+  return (
+    <div dir="rtl" lang="ar" className="min-h-screen w-full" style={{ background: "#EEF2F0", fontFamily: "Tajawal, sans-serif" }}>
+      {/* Header */}
+      <div
+        className="px-5 pt-7 pb-6 relative overflow-hidden"
+        style={{ background: "repeating-linear-gradient(#1E3A3A 0 34px, #1B3532 34px 35px)" }}
+      >
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(22,48,46,0.55), rgba(22,48,46,0.85))" }} />
+        <div className="relative">
+          <div className="text-[28px] font-bold" style={{ color: "#F6F4EC", fontFamily: "Markazi Text, serif" }}>
+            خميس القدرات
+          </div>
+          <div className="text-[13px] mt-1" style={{ color: "#B9CFC9" }}>
+            متابعة أسبوعية لأداء الطالبات في اختبار القدرات
+          </div>
+          <div className="text-[12px] mt-2.5 flex items-center gap-1.5 flex-wrap" style={{ color: "#8FB0A8" }}>
+            <span className="font-bold" style={{ color: "#D9EAE5" }}>
+              المعلمة: ثريا بتال الدوسري
+            </span>
+            <span style={{ color: "#5C7A73" }}>·</span>
+            <span>الثانوية الأولى بالهدار</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="px-4 -mt-4 relative pb-24 max-w-xl mx-auto">
+        {loading ? (
+          <div className="rounded-xl py-14 text-center" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+            <div style={{ color: "#7C8A85" }}>جاري تحميل البيانات…</div>
+          </div>
+        ) : (
+          <>
+            {tab === "home" && (
+              <HomeTab
+                countStudents={students.length}
+                countExams={exams.length}
+                countA={countA}
+                countB={countB}
+                topThree={rankAll.slice(0, 3)}
+                onSeeOverall={() => setTab("overall")}
+              />
+            )}
+            {tab === "classA" && <RankingTable rows={rankA} title="ترتيب فصل (أ)" subtitle={`${countA} طالبة`} />}
+            {tab === "classB" && <RankingTable rows={rankB} title="ترتيب فصل (ب)" subtitle={`${countB} طالبة`} />}
+            {tab === "overall" && <RankingTable rows={rankAll} title="الترتيب العام" subtitle={`جميع الطالبات (${students.length})`} />}
+            {tab === "mock" && (
+              <MockTab
+                students={students}
+                mockStartDate={mockStartDate}
+                mockAttempts={mockAttempts}
+                onSaveAttempt={saveMockAttempt}
+              />
+            )}
+            {tab === "admin" &&
+              (isAdmin ? (
+                <AdminPanel
+                  students={students}
+                  exams={exams}
+                  scores={scores}
+                  mockStartDate={mockStartDate}
+                  mockAttempts={mockAttempts}
+                  subTab={adminSubTab}
+                  setSubTab={setAdminSubTab}
+                  onAddStudent={addStudent}
+                  onUpdateStudent={updateStudent}
+                  onDeleteStudent={deleteStudent}
+                  onRegenerateStudentPin={regenerateStudentPin}
+                  onAddExam={addExam}
+                  onUpdateExamInfo={updateExamInfo}
+                  onDeleteExam={deleteExam}
+                  onSaveExamScores={saveExamScores}
+                  onSaveMockStart={persistMockStart}
+                  onResetMockAttempt={resetMockAttempt}
+                  onLogout={() => setIsAdmin(false)}
+                  statsById={statsById}
+                />
+              ) : (
+                <AdminLogin pinInput={pinInput} setPinInput={setPinInput} pinError={pinError} onSubmit={tryAdminLogin} />
+              ))}
+          </>
+        )}
+      </div>
+
+      {/* Bottom nav */}
+      <div className="fixed bottom-0 inset-x-0 z-20" style={{ background: "#FFFFFF", borderTop: "1px solid #DCE3DE", paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="max-w-xl mx-auto grid grid-cols-6">
+          {NAV.map((n) => {
+            const active = tab === n.key;
+            const Icon = n.icon;
+            return (
+              <button
+                key={n.key}
+                onClick={() => setTab(n.key)}
+                className="flex flex-col items-center justify-center gap-1 py-2.5"
+                style={{ color: active ? "#2F6F62" : "#8B9994" }}
+              >
+                <Icon size={18} strokeWidth={active ? 2.4 : 2} />
+                <span className="text-[9.5px] font-bold" style={{ fontFamily: "Tajawal, sans-serif" }}>
+                  {n.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Toast */}
+      {(toast || saving) && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full text-[13px] font-bold shadow-lg" style={{ background: "#1E3A3A", color: "#F6F4EC" }}>
+          {toast || "جاري الحفظ…"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- تبويب الرئيسية ---------------------------- */
+
+function HomeTab({ countStudents, countExams, countA, countB, topThree, onSeeOverall }) {
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="flex gap-3 flex-wrap">
+        <StatCard icon={Users} label="عدد الطالبات" value={countStudents} accent="#2F6F62" />
+        <StatCard icon={ClipboardList} label="عدد الاختبارات" value={countExams} accent="#5B4B8A" />
+      </div>
+      <div className="flex gap-3 flex-wrap">
+        <StatCard icon={Users} label="طالبات فصل أ" value={countA} accent="#2F6F62" />
+        <StatCard icon={Users} label="طالبات فصل ب" value={countB} accent="#5B4B8A" />
+      </div>
+
+      <div className="rounded-xl overflow-hidden mt-2" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+        <div className="px-4 py-3.5 flex items-center justify-between" style={{ borderBottom: "1px solid #DCE3DE" }}>
+          <div className="font-bold text-[16px]" style={{ color: "#16302E", fontFamily: "Markazi Text, serif" }}>
+            أعلى ثلاث طالبات
+          </div>
+          <button onClick={onSeeOverall} className="text-[12.5px] font-bold flex items-center gap-1" style={{ color: "#2F6F62" }}>
+            الترتيب العام
+            <ChevronLeft size={15} />
+          </button>
+        </div>
+        {topThree.length === 0 ? (
+          <div className="p-5">
+            <EmptyState title="لا توجد نتائج بعد" hint="أضف طالبات واختبارًا من لوحة الإدارة ليظهر الترتيب هنا" />
+          </div>
+        ) : (
+          <div>
+            {topThree.map((r, i) => (
+              <div key={r.id} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: i === topThree.length - 1 ? "none" : "1px solid #F1F4F0" }}>
+                <MedalBadge rank={r.rank} />
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-[14.5px] truncate" style={{ color: "#1E3A3A" }}>
+                    {r.name}
+                  </div>
+                  <ClassPill c={r.className} />
+                </div>
+                <div className="text-left font-bold text-[15px] tabular-nums" style={{ color: "#2F6F62" }}>
+                  {r.avg.toFixed(1)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------- تبويب الاختبارات التجريبية ---------------------------- */
+
+function MockTab({ students, mockStartDate, mockAttempts, onSaveAttempt }) {
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [pendingStudentId, setPendingStudentId] = useState(null);
+  const [pinValue, setPinValue] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [activeTestId, setActiveTestId] = useState(null);
+  const [answers, setAnswers] = useState({});
+
+  const firstThursday = useMemo(() => getFirstThursday(mockStartDate), [mockStartDate]);
+  const now = new Date();
+
+  const selectedStudent = students.find((s) => s.id === selectedStudentId);
+  const pendingStudent = students.find((s) => s.id === pendingStudentId);
+
+  const testsWithMeta = MOCK_TESTS.map((t, i) => {
+    const { start, end } = getTestWindow(firstThursday, i);
+    const attempt = selectedStudentId ? mockAttempts[t.id]?.[selectedStudentId] : null;
+    const status = getStatus(now, start, end, !!attempt);
+    return { ...t, start, end, status, attempt };
+  });
+
+  const activeTest = testsWithMeta.find((t) => t.id === activeTestId);
+
+  function chooseStudent(s) {
+    setPendingStudentId(s.id);
+    setPinValue("");
+    setPinError("");
+  }
+
+  function confirmPin() {
+    if (!pendingStudent) return;
+    if (pinValue.trim() === (pendingStudent.pin || "")) {
+      setSelectedStudentId(pendingStudentId);
+      setPendingStudentId(null);
+      setPinValue("");
+      setPinError("");
+    } else {
+      setPinError("الرمز السري غير صحيح، تأكدي منه مع معلمتك");
+    }
+  }
+
+  function changeStudent() {
+    setSelectedStudentId(null);
+    setPendingStudentId(null);
+    setPinValue("");
+    setPinError("");
+  }
+
+  function startTest(t) {
+    setActiveTestId(t.id);
+    const d = {};
+    t.questions.forEach((q) => (d[q.id] = null));
+    setAnswers(d);
+  }
+
+  function submitTest() {
+    const t = activeTest;
+    let correctCount = 0;
+    t.questions.forEach((q) => {
+      if (answers[q.id] === q.correctIndex) correctCount += 1;
+    });
+    onSaveAttempt(t.id, selectedStudentId, {
+      answers,
+      correctCount,
+      total: t.questions.length,
+      submittedAt: new Date().toISOString(),
+    });
+  }
+
+  /* --- التحقق بالرمز السري --- */
+  if (pendingStudentId) {
+    return (
+      <div className="pt-2 space-y-3">
+        <button onClick={changeStudent} className="flex items-center gap-1 text-[13px] font-bold" style={{ color: "#2F6F62" }}>
+          <ChevronLeft size={16} />
+          رجوع لقائمة الأسماء
+        </button>
+        <div className="rounded-xl p-5 space-y-3" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+          <div className="flex items-center gap-2">
+            <Lock size={18} style={{ color: "#5B4B8A" }} />
+            <span className="font-bold text-[15px]" style={{ color: "#16302E" }}>
+              أدخلي رمزكِ السري
+            </span>
+          </div>
+          <div className="text-[13px]" style={{ color: "#7C8A85" }}>
+            مرحبًا {pendingStudent?.name}، أدخلي الرمز السري المكوّن من 4 أرقام الخاص بكِ للمتابعة.
+          </div>
+          <input
+            value={pinValue}
+            onChange={(e) => setPinValue(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            onKeyDown={(e) => e.key === "Enter" && confirmPin()}
+            inputMode="numeric"
+            type="password"
+            placeholder="••••"
+            autoFocus
+            className="w-full rounded-lg px-3 py-3 text-center text-[20px] tracking-[6px] outline-none tabular-nums"
+            style={{ border: `1px solid ${pinError ? "#D98A70" : "#C9D2CB"}`, color: "#1E3A3A" }}
+          />
+          {pinError && (
+            <div className="text-[12.5px] font-bold" style={{ color: "#B3452F" }}>
+              {pinError}
+            </div>
+          )}
+          <button
+            onClick={confirmPin}
+            disabled={pinValue.length !== 4}
+            className="w-full rounded-lg py-3 font-bold text-[14.5px]"
+            style={{ background: pinValue.length === 4 ? "#2F6F62" : "#C9D2CB", color: "#FFFFFF" }}
+          >
+            دخول
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* --- اختيار الاسم --- */
+  if (!selectedStudentId) {
+    return (
+      <div className="pt-2 space-y-3">
+        <div className="rounded-xl p-4" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+          <div className="flex items-center gap-2 mb-1">
+            <FlaskConical size={18} style={{ color: "#5B4B8A" }} />
+            <span className="font-bold text-[15.5px]" style={{ color: "#16302E", fontFamily: "Markazi Text, serif" }}>
+              الاختبارات التجريبية — القسم الكمي
+            </span>
+          </div>
+          <div className="text-[12.5px]" style={{ color: "#7C8A85" }}>
+            {MOCK_TEST_COUNT} اختبارًا أسبوعيًا، يبدأ كل اختبار يوم الخميس وينتهي مساء الثلاثاء، ولا يمكن إعادة حله بعد التسليم. اختاري اسمك ثم أدخلي رمزكِ السري لبدء الحل.
+          </div>
+        </div>
+        <div className="rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+          {students.length === 0 ? (
+            <div className="p-5">
+              <EmptyState title="لا توجد طالبات مسجلات بعد" hint="على المعلمة إضافة الطالبات من لوحة الإدارة أولًا" />
+            </div>
+          ) : (
+            students.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => chooseStudent(s)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-right"
+                style={{ borderBottom: i === students.length - 1 ? "none" : "1px solid #F1F4F0" }}
+              >
+                <span className="flex-1 font-bold text-[14.5px]" style={{ color: "#1E3A3A" }}>
+                  {s.name}
+                </span>
+                <ClassPill c={s.className} />
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* --- وضع حل الاختبار --- */
+  if (activeTest && activeTest.status === "open" && !activeTest.attempt) {
+    const answeredCount = Object.values(answers).filter((v) => v !== null).length;
+    const allAnswered = answeredCount === activeTest.questions.length;
+    return (
+      <div className="pt-2 space-y-3 pb-16">
+        <button onClick={() => setActiveTestId(null)} className="flex items-center gap-1 text-[13px] font-bold" style={{ color: "#2F6F62" }}>
+          <ChevronLeft size={16} />
+          رجوع لقائمة الاختبارات
+        </button>
+        <div className="rounded-xl p-3.5 flex items-center justify-between" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+          <span className="font-bold text-[14.5px]" style={{ color: "#16302E" }}>
+            {activeTest.title}
+          </span>
+          <span className="text-[12.5px] font-bold" style={{ color: "#5B4B8A" }}>
+            {answeredCount} / {activeTest.questions.length}
+          </span>
+        </div>
+
+        {activeTest.questions.map((q, qi) => (
+          <div key={q.id} className="rounded-xl p-4" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span
+                className="inline-flex items-center justify-center rounded-full text-[11.5px] font-bold shrink-0"
+                style={{ width: 22, height: 22, background: "#EEEAF5", color: "#5B4B8A" }}
+              >
+                {qi + 1}
+              </span>
+              <span className="text-[11px] font-bold" style={{ color: "#8B9994" }}>
+                {q.topic}
+              </span>
+            </div>
+            <div className="text-[14.5px] font-bold mb-3" style={{ color: "#1E3A3A", whiteSpace: "pre-line", lineHeight: 1.6 }}>
+              {q.question}
+            </div>
+            <div className="space-y-2">
+              {q.choices.map((choice, ci) => {
+                const selected = answers[q.id] === ci;
+                return (
+                  <button
+                    key={ci}
+                    onClick={() => setAnswers((a) => ({ ...a, [q.id]: ci }))}
+                    className="w-full text-right rounded-lg px-3.5 py-2.5 text-[13.5px] font-bold"
+                    style={{
+                      background: selected ? "#2F6F62" : "#F7F9F6",
+                      color: selected ? "#FFFFFF" : "#3A4A46",
+                      border: selected ? "1px solid #2F6F62" : "1px solid #E3E8E3",
+                    }}
+                  >
+                    {choice}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        <button
+          onClick={submitTest}
+          disabled={!allAnswered}
+          className="w-full rounded-lg py-3 font-bold text-[14.5px] flex items-center justify-center gap-2"
+          style={{ background: allAnswered ? "#2F6F62" : "#C9D2CB", color: "#FFFFFF" }}
+        >
+          <Save size={17} />
+          {allAnswered ? "تسليم الإجابات" : `أجيبي عن باقي الأسئلة (${activeTest.questions.length - answeredCount} متبقٍ)`}
+        </button>
+      </div>
+    );
+  }
+
+  /* --- وضع عرض التغذية الراجعة (بعد التسليم) --- */
+  if (activeTest && activeTest.attempt) {
+    const attempt = activeTest.attempt;
+    return (
+      <div className="pt-2 space-y-3 pb-6">
+        <button onClick={() => setActiveTestId(null)} className="flex items-center gap-1 text-[13px] font-bold" style={{ color: "#2F6F62" }}>
+          <ChevronLeft size={16} />
+          رجوع لقائمة الاختبارات
+        </button>
+
+        <div className="rounded-xl p-5 text-center" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+          <div className="text-[13px] font-bold mb-1" style={{ color: "#7C8A85" }}>
+            {activeTest.title} — نتيجتك
+          </div>
+          <div className="text-[34px] font-bold tabular-nums" style={{ color: "#2F6F62" }}>
+            {attempt.correctCount} / {attempt.total}
+          </div>
+          <div className="text-[12px] mt-1" style={{ color: "#8B9994" }}>
+            <Lock size={11} className="inline ml-1" />
+            تم تسليم هذا الاختبار ولا يمكن إعادة حله
+          </div>
+        </div>
+
+        {activeTest.questions.map((q, qi) => {
+          const yourAnswer = attempt.answers?.[q.id];
+          const isCorrect = yourAnswer === q.correctIndex;
+          return (
+            <div key={q.id} className="rounded-xl p-4" style={{ background: "#FFFFFF", border: `1px solid ${isCorrect ? "#BFD8CF" : "#F0CFC4"}` }}>
+              <div className="flex items-center gap-2 mb-2">
+                {isCorrect ? <CheckCircle2 size={17} style={{ color: "#2F6F62" }} /> : <XCircle size={17} style={{ color: "#B3452F" }} />}
+                <span className="text-[11px] font-bold" style={{ color: "#8B9994" }}>
+                  السؤال {qi + 1} · {q.topic}
+                </span>
+              </div>
+              <div className="text-[14px] font-bold mb-2.5" style={{ color: "#1E3A3A", whiteSpace: "pre-line", lineHeight: 1.6 }}>
+                {q.question}
+              </div>
+              <div className="space-y-1.5 mb-2.5">
+                {q.choices.map((choice, ci) => {
+                  const isTheCorrect = ci === q.correctIndex;
+                  const isYours = ci === yourAnswer;
+                  return (
+                    <div
+                      key={ci}
+                      className="rounded-lg px-3 py-2 text-[13px] font-bold flex items-center justify-between"
+                      style={{
+                        background: isTheCorrect ? "#E6EFEC" : isYours ? "#FBEAE5" : "#F7F9F6",
+                        color: isTheCorrect ? "#2F6F62" : isYours ? "#B3452F" : "#5C6E68",
+                      }}
+                    >
+                      <span>{choice}</span>
+                      {isTheCorrect && <Check size={14} />}
+                      {isYours && !isTheCorrect && <X size={14} />}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="text-[12.5px] rounded-lg px-3 py-2.5" style={{ background: "#F7F9F6", color: "#5C6E68", lineHeight: 1.7 }}>
+                <span className="font-bold" style={{ color: "#3A4A46" }}>
+                  التوضيح:{" "}
+                </span>
+                {q.explanation}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  /* --- قائمة الاختبارات --- */
+  return (
+    <div className="pt-2 space-y-3">
+      <div className="rounded-xl p-3.5 flex items-center justify-between" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+        <div>
+          <div className="text-[11.5px]" style={{ color: "#8B9994" }}>
+            الطالبة
+          </div>
+          <div className="font-bold text-[14.5px]" style={{ color: "#1E3A3A" }}>
+            {selectedStudent?.name}
+          </div>
+        </div>
+        <button onClick={changeStudent} className="text-[12px] font-bold px-3 py-1.5 rounded-lg" style={{ background: "#F1F4F0", color: "#3A4A46" }}>
+          تغيير الاسم
+        </button>
+      </div>
+
+      <div className="rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+        {testsWithMeta.map((t, i) => {
+          const clickable = t.status === "open" || t.status === "submitted";
+          return (
+            <button
+              key={t.id}
+              disabled={!clickable}
+              onClick={() => clickable && startTest(t)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-right"
+              style={{
+                borderBottom: i === testsWithMeta.length - 1 ? "none" : "1px solid #F1F4F0",
+                opacity: clickable ? 1 : 0.6,
+              }}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-[14px] truncate" style={{ color: "#1E3A3A" }}>
+                  {t.title}
+                </div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: "#8B9994" }}>
+                  من {fmtDate(t.start)} إلى {fmtDate(t.end)}
+                  {t.attempt ? ` · النتيجة ${t.attempt.correctCount}/${t.attempt.total}` : ""}
+                </div>
+              </div>
+              <StatusPill status={t.status} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------- تسجيل دخول الإدارة ---------------------------- */
+
+function AdminLogin({ pinInput, setPinInput, pinError, onSubmit }) {
+  return (
+    <div className="pt-8 flex flex-col items-center">
+      <div className="w-full rounded-xl p-6" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <div className="flex items-center justify-center rounded-full" style={{ width: 46, height: 46, background: "#E6EFEC" }}>
+            <Lock size={20} style={{ color: "#2F6F62" }} />
+          </div>
+          <div className="font-bold text-[16px]" style={{ color: "#16302E", fontFamily: "Markazi Text, serif" }}>
+            دخول لوحة الإدارة
+          </div>
+          <div className="text-[12.5px] text-center" style={{ color: "#7C8A85" }}>
+            هذا القسم مخصص للمعلمة فقط. الطالبات يشاهدن الترتيب ويحللن الاختبارات التجريبية دون الحاجة لرمز.
+          </div>
+        </div>
+        <input
+          type="password"
+          inputMode="numeric"
+          value={pinInput}
+          onChange={(e) => setPinInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+          placeholder="أدخلي رمز الدخول"
+          className="w-full text-center text-[16px] tracking-widest rounded-lg px-3 py-2.5 outline-none"
+          style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }}
+        />
+        {pinError && (
+          <div className="text-[12.5px] mt-2 text-center" style={{ color: "#B3452F" }}>
+            {pinError}
+          </div>
+        )}
+        <button onClick={onSubmit} className="w-full mt-3 rounded-lg py-2.5 font-bold text-[14px] flex items-center justify-center gap-2" style={{ background: "#2F6F62", color: "#FFFFFF" }}>
+          <Unlock size={16} />
+          دخول
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------- لوحة الإدارة ---------------------------- */
+
+function AdminPanel({
+  students,
+  exams,
+  scores,
+  mockStartDate,
+  mockAttempts,
+  subTab,
+  setSubTab,
+  onAddStudent,
+  onUpdateStudent,
+  onDeleteStudent,
+  onRegenerateStudentPin,
+  onAddExam,
+  onUpdateExamInfo,
+  onDeleteExam,
+  onSaveExamScores,
+  onSaveMockStart,
+  onResetMockAttempt,
+  onLogout,
+  statsById,
+}) {
+  return (
+    <div className="pt-2 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex rounded-lg overflow-hidden shrink-0" style={{ border: "1px solid #DCE3DE" }}>
+          {[
+            { key: "students", label: "الطالبات" },
+            { key: "exams", label: "الاختبارات" },
+            { key: "mock", label: "التجريبية" },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setSubTab(t.key)}
+              className="px-3 py-2 text-[12.5px] font-bold"
+              style={{ background: subTab === t.key ? "#2F6F62" : "#FFFFFF", color: subTab === t.key ? "#FFFFFF" : "#3A4A46" }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={onLogout} className="flex items-center gap-1 text-[12.5px] font-bold px-3 py-2 rounded-lg shrink-0" style={{ color: "#B3452F", background: "#FBEAE5" }}>
+          <LogOut size={14} />
+          خروج
+        </button>
+      </div>
+
+      {subTab === "students" && (
+        <StudentsAdmin students={students} statsById={statsById} onAddStudent={onAddStudent} onUpdateStudent={onUpdateStudent} onDeleteStudent={onDeleteStudent} onRegenerateStudentPin={onRegenerateStudentPin} />
+      )}
+      {subTab === "exams" && (
+        <ExamsAdmin students={students} exams={exams} scores={scores} onAddExam={onAddExam} onUpdateExamInfo={onUpdateExamInfo} onDeleteExam={onDeleteExam} onSaveExamScores={onSaveExamScores} />
+      )}
+      {subTab === "mock" && (
+        <MockAdmin students={students} mockStartDate={mockStartDate} mockAttempts={mockAttempts} onSaveMockStart={onSaveMockStart} onResetMockAttempt={onResetMockAttempt} />
+      )}
+    </div>
+  );
+}
+
+/* --- إدارة الطالبات --- */
+
+function StudentsAdmin({ students, statsById, onAddStudent, onUpdateStudent, onDeleteStudent, onRegenerateStudentPin }) {
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState("");
+  const [className, setClassName] = useState("أ");
+  const [pinDraft, setPinDraft] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [visiblePinId, setVisiblePinId] = useState(null);
+
+  function openAdd() {
+    setEditingId(null);
+    setName("");
+    setClassName("أ");
+    setPinDraft("");
+    setShowForm(true);
+  }
+  function openEdit(s) {
+    setEditingId(s.id);
+    setName(s.name);
+    setClassName(s.className);
+    setPinDraft(s.pin || "");
+    setShowForm(true);
+  }
+  function submit() {
+    if (!name.trim()) return;
+    if (editingId) {
+      const cleanPin = pinDraft.trim();
+      onUpdateStudent(editingId, name, className, /^\d{4}$/.test(cleanPin) ? cleanPin : null);
+    } else {
+      onAddStudent(name, className);
+    }
+    setShowForm(false);
+  }
+
+  return (
+    <div className="space-y-3">
+      <button onClick={openAdd} className="w-full rounded-lg py-2.5 font-bold text-[14px] flex items-center justify-center gap-2" style={{ background: "#2F6F62", color: "#FFFFFF" }}>
+        <Plus size={17} />
+        إضافة طالبة
+      </button>
+
+      <div className="rounded-xl p-3 text-[12px] flex items-start gap-2" style={{ background: "#EEEAF5", color: "#5B4B8A" }}>
+        <Lock size={14} className="shrink-0 mt-0.5" />
+        <span>كل طالبة لديها رمز سري من 4 أرقام تطلبه عند اختيار اسمها في تبويب الاختبار التجريبي، لمنع أي طالبة من الحل باسم زميلتها.</span>
+      </div>
+
+      {showForm && (
+        <div className="rounded-xl p-4 space-y-3" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+          <div className="text-[13.5px] font-bold" style={{ color: "#16302E" }}>
+            {editingId ? "تعديل بيانات الطالبة" : "طالبة جديدة"}
+          </div>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم الطالبة" className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none" style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }} />
+          <div className="flex gap-2">
+            {CLASSES.map((c) => (
+              <button key={c} onClick={() => setClassName(c)} className="flex-1 rounded-lg py-2 text-[13.5px] font-bold" style={{ background: className === c ? "#2F6F62" : "#F1F4F0", color: className === c ? "#FFFFFF" : "#3A4A46" }}>
+                فصل {c}
+              </button>
+            ))}
+          </div>
+          {editingId && (
+            <div>
+              <div className="text-[12px] mb-1" style={{ color: "#7C8A85" }}>
+                الرمز السري (4 أرقام)
+              </div>
+              <input
+                value={pinDraft}
+                onChange={(e) => setPinDraft(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                inputMode="numeric"
+                placeholder="مثال: 1234"
+                className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none tabular-nums"
+                style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }}
+              />
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button onClick={submit} className="flex-1 rounded-lg py-2.5 font-bold text-[14px] flex items-center justify-center gap-1.5" style={{ background: "#1E3A3A", color: "#FFFFFF" }}>
+              <Check size={16} />
+              حفظ
+            </button>
+            <button onClick={() => setShowForm(false)} className="flex-1 rounded-lg py-2.5 font-bold text-[14px]" style={{ background: "#F1F4F0", color: "#3A4A46" }}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+        {students.length === 0 ? (
+          <div className="p-5">
+            <EmptyState title="لا توجد طالبات مسجلات" hint="ابدئي بإضافة أول طالبة" />
+          </div>
+        ) : (
+          students.map((s, i) => {
+            const st = statsById[s.id] || { total: 0, count: 0, avg: 0 };
+            const pinVisible = visiblePinId === s.id;
+            return (
+              <div key={s.id} className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: i === students.length - 1 ? "none" : "1px solid #F1F4F0" }}>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-[14.5px] truncate" style={{ color: "#1E3A3A" }}>
+                    {s.name}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <ClassPill c={s.className} />
+                    <span className="text-[11.5px]" style={{ color: "#8B9994" }}>
+                      {st.count} اختبار · متوسط {st.avg.toFixed(1)}
+                    </span>
+                    <button
+                      onClick={() => setVisiblePinId(pinVisible ? null : s.id)}
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full tabular-nums"
+                      style={{ background: "#EEEAF5", color: "#5B4B8A" }}
+                    >
+                      {pinVisible ? `الرمز: ${s.pin || "—"}` : "إظهار الرمز"}
+                    </button>
+                    <button
+                      onClick={() => onRegenerateStudentPin(s.id)}
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
+                      style={{ background: "#F1F4F0", color: "#3A4A46" }}
+                      title="توليد رمز جديد"
+                    >
+                      <RotateCcw size={11} />
+                      تجديد
+                    </button>
+                  </div>
+                </div>
+                <button onClick={() => openEdit(s)} className="p-2 rounded-lg shrink-0" style={{ background: "#F1F4F0", color: "#3A4A46" }}>
+                  <Pencil size={15} />
+                </button>
+                <button onClick={() => setConfirmDeleteId(s.id)} className="p-2 rounded-lg shrink-0" style={{ background: "#FBEAE5", color: "#B3452F" }}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {confirmDeleteId && (
+        <ConfirmDialog
+          message="سيتم حذف الطالبة وجميع درجاتها المسجلة. هل تريدين المتابعة؟"
+          onCancel={() => setConfirmDeleteId(null)}
+          onConfirm={() => {
+            onDeleteStudent(confirmDeleteId);
+            setConfirmDeleteId(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* --- إدارة الاختبارات والدرجات --- */
+
+function ExamsAdmin({ students, exams, scores, onAddExam, onUpdateExamInfo, onDeleteExam, onSaveExamScores }) {
+  const [showNewExam, setShowNewExam] = useState(false);
+  const [examName, setExamName] = useState("");
+  const [examDate, setExamDate] = useState("");
+  const [selectedExamId, setSelectedExamId] = useState(null);
+  const [draft, setDraft] = useState({});
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  const sortedExams = [...exams].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const selectedExam = exams.find((e) => e.id === selectedExamId);
+
+  function openScoreEntry(exam) {
+    setSelectedExamId(exam.id);
+    const existing = scores[exam.id] || {};
+    const d = {};
+    students.forEach((s) => {
+      d[s.id] = existing[s.id] !== undefined ? String(existing[s.id]) : "";
+    });
+    setDraft(d);
+  }
+
+  function createExam() {
+    if (!examName.trim()) return;
+    const id = onAddExam(examName, examDate);
+    setExamName("");
+    setExamDate("");
+    setShowNewExam(false);
+    if (id) {
+      const d = {};
+      students.forEach((s) => (d[s.id] = ""));
+      setSelectedExamId(id);
+      setDraft(d);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {!selectedExamId && (
+        <>
+          <button onClick={() => setShowNewExam((v) => !v)} className="w-full rounded-lg py-2.5 font-bold text-[14px] flex items-center justify-center gap-2" style={{ background: "#2F6F62", color: "#FFFFFF" }}>
+            <Plus size={17} />
+            إضافة اختبار جديد
+          </button>
+
+          {showNewExam && (
+            <div className="rounded-xl p-4 space-y-3" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+              <input value={examName} onChange={(e) => setExamName(e.target.value)} placeholder="اسم الاختبار (مثال: اختبار الأسبوع 3)" className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none" style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }} />
+              <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none" style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }} />
+              <button onClick={createExam} className="w-full rounded-lg py-2.5 font-bold text-[14px]" style={{ background: "#1E3A3A", color: "#FFFFFF" }}>
+                إنشاء ومتابعة إدخال الدرجات
+              </button>
+            </div>
+          )}
+
+          <div className="rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+            {sortedExams.length === 0 ? (
+              <div className="p-5">
+                <EmptyState title="لا توجد اختبارات بعد" hint="أضيفي أول اختبار أسبوعي" />
+              </div>
+            ) : (
+              sortedExams.map((e, i) => {
+                const count = Object.keys(scores[e.id] || {}).length;
+                return (
+                  <div key={e.id} className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: i === sortedExams.length - 1 ? "none" : "1px solid #F1F4F0" }}>
+                    <button className="min-w-0 flex-1 text-right" onClick={() => openScoreEntry(e)}>
+                      <div className="font-bold text-[14.5px] truncate" style={{ color: "#1E3A3A" }}>
+                        {e.name}
+                      </div>
+                      <div className="text-[11.5px] mt-0.5" style={{ color: "#8B9994" }}>
+                        {e.date ? e.date + " · " : ""}
+                        {count} درجة مدخلة
+                      </div>
+                    </button>
+                    <button onClick={() => openScoreEntry(e)} className="p-2 rounded-lg shrink-0" style={{ background: "#F1F4F0", color: "#3A4A46" }}>
+                      <Pencil size={15} />
+                    </button>
+                    <button onClick={() => setConfirmDeleteId(e.id)} className="p-2 rounded-lg shrink-0" style={{ background: "#FBEAE5", color: "#B3452F" }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
+
+      {selectedExamId && selectedExam && (
+        <ScoreEntry
+          exam={selectedExam}
+          students={students}
+          draft={draft}
+          setDraft={setDraft}
+          onBack={() => setSelectedExamId(null)}
+          onUpdateExamInfo={onUpdateExamInfo}
+          onSave={() => {
+            onSaveExamScores(selectedExamId, draft);
+            setSelectedExamId(null);
+          }}
+        />
+      )}
+
+      {confirmDeleteId && (
+        <ConfirmDialog
+          message="سيتم حذف الاختبار وجميع الدرجات المرتبطة به. هل تريدين المتابعة؟"
+          onCancel={() => setConfirmDeleteId(null)}
+          onConfirm={() => {
+            onDeleteExam(confirmDeleteId);
+            setConfirmDeleteId(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ScoreEntry({ exam, students, draft, setDraft, onBack, onUpdateExamInfo, onSave }) {
+  const [name, setName] = useState(exam.name);
+  const [date, setDate] = useState(exam.date || "");
+
+  function saveInfo() {
+    onUpdateExamInfo(exam.id, name, date);
+  }
+
+  const grouped = CLASSES.map((c) => ({ c, list: students.filter((s) => s.className === c) }));
+
+  return (
+    <div className="space-y-3">
+      <button onClick={onBack} className="flex items-center gap-1 text-[13px] font-bold" style={{ color: "#2F6F62" }}>
+        <ChevronLeft size={16} />
+        رجوع إلى قائمة الاختبارات
+      </button>
+
+      <div className="rounded-xl p-4 space-y-3" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+        <div className="text-[13.5px] font-bold" style={{ color: "#16302E" }}>
+          بيانات الاختبار
+        </div>
+        <input value={name} onChange={(e) => setName(e.target.value)} onBlur={saveInfo} className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none" style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }} />
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} onBlur={saveInfo} className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none" style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }} />
+      </div>
+
+      {students.length === 0 ? (
+        <EmptyState title="لا توجد طالبات مسجلات" hint="أضيفي طالبات أولًا من تبويب الطالبات" />
+      ) : (
+        grouped.map(({ c, list }) => (
+          <div key={c} className="rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+            <div className="px-4 py-2.5" style={{ borderBottom: "1px solid #DCE3DE" }}>
+              <span className="text-[13.5px] font-bold" style={{ color: "#16302E" }}>
+                فصل {c}
+              </span>
+            </div>
+            {list.length === 0 ? (
+              <div className="px-4 py-3 text-[13px]" style={{ color: "#8B9994" }}>
+                لا توجد طالبات في هذا الفصل
+              </div>
+            ) : (
+              list.map((s, i) => (
+                <div key={s.id} className="px-4 py-2.5 flex items-center gap-3" style={{ borderBottom: i === list.length - 1 ? "none" : "1px solid #F1F4F0" }}>
+                  <span className="flex-1 text-[14px] font-bold truncate" style={{ color: "#1E3A3A" }}>
+                    {s.name}
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={draft[s.id] ?? ""}
+                    onChange={(e) => setDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                    placeholder="الدرجة"
+                    className="w-24 text-center rounded-lg px-2 py-2 text-[14px] outline-none tabular-nums"
+                    style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }}
+                  />
+                </div>
+              ))
+            )}
+          </div>
+        ))
+      )}
+
+      <button onClick={onSave} className="w-full rounded-lg py-3 font-bold text-[14.5px] flex items-center justify-center gap-2 sticky bottom-20" style={{ background: "#2F6F62", color: "#FFFFFF" }}>
+        <Save size={17} />
+        حفظ الدرجات وتحديث الترتيب
+      </button>
+    </div>
+  );
+}
+
+/* --- إدارة الاختبارات التجريبية --- */
+
+function MockAdmin({ students, mockStartDate, mockAttempts, onSaveMockStart, onResetMockAttempt }) {
+  const [dateInput, setDateInput] = useState(mockStartDate || "");
+  const [expandedId, setExpandedId] = useState(null);
+
+  const firstThursday = useMemo(() => getFirstThursday(dateInput || mockStartDate), [dateInput, mockStartDate]);
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl p-4 space-y-3" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+        <div className="flex items-center gap-2">
+          <CalendarClock size={18} style={{ color: "#5B4B8A" }} />
+          <span className="text-[13.5px] font-bold" style={{ color: "#16302E" }}>
+            تاريخ بداية أول اختبار تجريبي
+          </span>
+        </div>
+        <div className="text-[12px]" style={{ color: "#7C8A85" }}>
+          سيُضبط تلقائيًا على أقرب يوم خميس بعد التاريخ المُختار. كل اختبار يبدأ خميسًا وينتهي مساء الثلاثاء التالي له.
+        </div>
+        <input type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)} className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none" style={{ border: "1px solid #C9D2CB", color: "#1E3A3A" }} />
+        <button onClick={() => onSaveMockStart(dateInput)} className="w-full rounded-lg py-2.5 font-bold text-[14px]" style={{ background: "#2F6F62", color: "#FFFFFF" }}>
+          حفظ الموعد
+        </button>
+        <div className="text-[12.5px] font-bold" style={{ color: "#3A4A46" }}>
+          أول اختبار سيبدأ فعليًا يوم {fmtDate(firstThursday)}
+        </div>
+      </div>
+
+      <div className="rounded-xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }}>
+        {MOCK_TESTS.map((t, i) => {
+          const { start, end } = getTestWindow(firstThursday, i);
+          const attemptsForTest = mockAttempts[t.id] || {};
+          const submittedIds = Object.keys(attemptsForTest);
+          const avg =
+            submittedIds.length > 0
+              ? (
+                  submittedIds.reduce((s, id) => s + attemptsForTest[id].correctCount, 0) / submittedIds.length
+                ).toFixed(1)
+              : null;
+          const expanded = expandedId === t.id;
+          return (
+            <div key={t.id} style={{ borderBottom: i === MOCK_TESTS.length - 1 ? "none" : "1px solid #F1F4F0" }}>
+              <button onClick={() => setExpandedId(expanded ? null : t.id)} className="w-full flex items-center gap-3 px-4 py-3 text-right">
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-[14px] truncate" style={{ color: "#1E3A3A" }}>
+                    {t.title}
+                  </div>
+                  <div className="text-[11.5px] mt-0.5" style={{ color: "#8B9994" }}>
+                    {fmtDate(start)} → {fmtDate(end)} · {submittedIds.length} تسليم{avg !== null ? ` · متوسط ${avg}/10` : ""}
+                  </div>
+                </div>
+                {expanded ? <ChevronUp size={16} style={{ color: "#8B9994" }} /> : <ChevronDown size={16} style={{ color: "#8B9994" }} />}
+              </button>
+              {expanded && (
+                <div className="px-4 pb-3 space-y-1.5">
+                  {submittedIds.length === 0 ? (
+                    <div className="text-[12.5px] py-2" style={{ color: "#8B9994" }}>
+                      لا توجد محاولات مسجلة بعد لهذا الاختبار
+                    </div>
+                  ) : (
+                    submittedIds.map((sid) => {
+                      const student = students.find((s) => s.id === sid);
+                      const a = attemptsForTest[sid];
+                      return (
+                        <div key={sid} className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "#F7F9F6" }}>
+                          <span className="flex-1 text-[13px] font-bold truncate" style={{ color: "#3A4A46" }}>
+                            {student ? student.name : "طالبة محذوفة"}
+                          </span>
+                          <span className="text-[12.5px] font-bold tabular-nums" style={{ color: "#2F6F62" }}>
+                            {a.correctCount}/{a.total}
+                          </span>
+                          <button onClick={() => onResetMockAttempt(t.id, sid)} className="p-1.5 rounded-md" style={{ background: "#EEEAF5", color: "#5B4B8A" }} title="السماح بإعادة المحاولة">
+                            <RotateCcw size={13} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDialog({ message, onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0" style={{ background: "rgba(20,30,28,0.45)" }} onClick={onCancel}>
+      <div className="w-full max-w-sm rounded-xl p-5" style={{ background: "#FFFFFF", border: "1px solid #DCE3DE" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle size={18} style={{ color: "#B3452F" }} />
+          <span className="font-bold text-[14.5px]" style={{ color: "#16302E" }}>
+            تأكيد الحذف
+          </span>
+        </div>
+        <div className="text-[13.5px] mb-4" style={{ color: "#5C6E68" }}>
+          {message}
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onConfirm} className="flex-1 rounded-lg py-2.5 font-bold text-[13.5px] flex items-center justify-center gap-1.5" style={{ background: "#B3452F", color: "#FFFFFF" }}>
+            <Trash2 size={15} />
+            حذف
+          </button>
+          <button onClick={onCancel} className="flex-1 rounded-lg py-2.5 font-bold text-[13.5px]" style={{ background: "#F1F4F0", color: "#3A4A46" }}>
+            <span className="inline-flex items-center gap-1.5">
+              <X size={15} />
+              إلغاء
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+const __root = createRoot(document.getElementById("root"));
+__root.render(<App />);
+
+</script>
+</body>
+</html>
