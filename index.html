@@ -736,10 +736,18 @@ function App() {
                     count += 1;
                 }
             });
+            MOCK_TESTS.forEach((t) => {
+                var _a;
+                const attempt = (_a = mockAttempts[t.id]) === null || _a === void 0 ? void 0 : _a[s.id];
+                if (attempt && typeof attempt.correctCount === "number") {
+                    total += attempt.correctCount;
+                    count += 1;
+                }
+            });
             map[s.id] = { total, count, avg: count ? total / count : 0 };
         });
         return map;
-    }, [students, exams, scores]);
+    }, [students, exams, scores, mockAttempts]);
     function buildRanking(classFilter) {
         let list = students.filter((s) => (classFilter ? s.className === classFilter : true));
         list = list.map((s) => (Object.assign(Object.assign({}, s), statsById[s.id]))).filter((s) => s.count > 0);
